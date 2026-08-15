@@ -65,6 +65,26 @@ const text = `Acme Billing Service datastore history.
 2026-06-19: Billing migrated off Postgres to DynamoDB last sprint.`;
 
 async function main() {
+  console.log("0) create the database (idempotent-ish; ignore already-exists)…");
+  try {
+    const created = await client.databases.create({ database: DATABASE });
+    console.log(JSON.stringify(created, null, 2));
+  } catch (e: any) {
+    console.log("   create said:", (e?.body && JSON.stringify(e.body)) ?? String(e));
+  }
+  // Provisioning is async — wait for the database to be ready before ingesting.
+  for (let i = 0; i < 20; i++) {
+    try {
+      const st = await client.databases.status({ database: DATABASE });
+      const s = JSON.stringify(st);
+      console.log(`   db status ${i}: ${s.slice(0, 160)}`);
+      if (/ready|active|completed|true/i.test(s)) break;
+    } catch (e: any) {
+      console.log(`   db status ${i}: not ready yet`);
+    }
+    await new Promise((r) => setTimeout(r, 5_000));
+  }
+
   console.log("1) ingest with an author-supplied graph_payload…");
   const file = new File([text], "billing-history.txt", { type: "text/plain" });
   const ingest = await client.context.ingest({
@@ -72,7 +92,13 @@ async function main() {
     type: "knowledge",
     documents: file,
     graphPayload: JSON.stringify(graphPayload),
-    documentMetadata: JSON.stringify({ id: SOURCE_ID, spike: true }),
+    // One entry per document, in the same order as `documents`.
+    // One entry per document, same order as `documents`. Only these keys are accepted:
+    // additional_metadata, document_metadata, file_id, id, infer, metadata, relations,
+    // source_id — anything custom goes inside additional_metadata.
+    documentMetadata: JSON.stringify([
+      { id: SOURCE_ID, additional_metadata: { spike: "true" } },
+    ]),
   });
   console.log(JSON.stringify(ingest, null, 2));
 
