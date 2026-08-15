@@ -1,7 +1,7 @@
 {
-  "name": "packet-graph",
+  "name": "belief-graph",
   "version": "1.0.0",
-  "description": "Consent-scoped context packets for hiring agents, on a HydraDB context graph",
+  "description": "A supersession layer for HydraDB: remember what you stopped believing",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
