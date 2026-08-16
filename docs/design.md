@@ -1,212 +1,95 @@
-# belief-graph — design
+# Design
 
-Hack Hydra, Track 01 (enterprise context and ontology). Written 2026-08-15.
+## The idea
 
-## The bet
+Retrieval systems rank by similarity to your question. Nothing in an index records that one
+statement retired another, so a March runbook and the June message that invalidated it sit
+side by side with equal standing.
 
-HydraDB's marketing promises temporal versioning, point-in-time recall and entity
-resolution. Its API documents none of them: there is no fact invalidation, no `as_of`
-parameter, and no deduplication beyond overwrite-by-id. That is precisely the ground
-Zep/Graphiti competes on. Track 01's brief — entity resolution, ontology alignment,
-deciding which of two contradictory statements to trust, and recognising when the answer
-is absent — is a description of that same gap.
+belief-graph makes the **claim** the unit. A claim carries what it asserts, when it was
+stated, which source it came from, and the sentence that evidences it. Once a claim is a
+node rather than prose, claims can act on other claims: a later one writes a dated
+`supersedes` edge to the one it retires. Nothing is deleted.
 
-So the bet is to build the missing capability *on* HydraDB rather than around it, using
-the primitives it does expose.
+Answers come back in three parts, any of which may be empty:
 
-## Which HydraDB — and why it matters
-
-HydraDB is two products, and the hackathon brief means the second one.
-
-- **The managed API** (`api.hydradb.com`): hybrid retrieval over chunks, an entity graph
-  built by LLM extraction, `graph_payload` for supplying your own graph. No query language.
-- **The open-source engine** (`github.com/hydra-db/hydradb`, AGPL-3.0, Rust): an
-  object-store-native graph database speaking **OpenCypher** over a **Neo4j-compatible Bolt**
-  interface, plus an HTTPS query API. Published container image for `linux/arm64`, so it
-  runs locally: Bolt on 7687, HTTP on 8443.
-
-The brief says "build with the HydraDB open-source repo," and the visible Track 1 field is
-using it — one competitor pins it as a git submodule and describes its answer path as "a
-bounded OpenCypher traversal, not a vector lookup."
-
-**Decision (2026-08-16): use both surfaces.** The managed API finds *where* in the corpus to
-look; the OSS engine decides *what is still true* there. Each does a job the other cannot,
-and the split is what makes the demo legible — a supersession chain walked by a real query
-beats a chunk list. Cost is a second integration on a four-day clock; accepted.
-
-### Verified constraints of their Cypher dialect
-
-Checked against `cypher-compat.md` in the engine repo. It is a deliberately restricted
-subset, rejected at parse time rather than silently:
-
-- **No temporal features at all** — no `as_of`, no point-in-time, no versioning primitives.
-  This is load-bearing for our positioning: the engine executes traversal and has no opinion
-  about whether an edge is still live. That layer is ours.
-- **No unbounded variable-length traversal** (`*`, `*1..`). Bounded only — fine, supersession
-  chains are short, but every traversal needs an explicit depth.
-- **No `IS NULL`, `IN`, `CONTAINS` or `ENDS WITH` in `WHERE`.** This is the awkward one: the
-  "find the entity with no claim of type X" absence query cannot be written the obvious way.
-  Structural absence has to be expressed differently — plan for this before relying on it in
-  the demo.
-- Also rejected: `RETURN *`, `min`/`max` aggregates, undirected patterns, multi-statement
-  requests, `WITH` that aliases or filters.
-
-`EXPLAIN` is available via `explain_opencypher_rows`, and a query the parser rejects fails
-there too — so validate query shapes cheaply before pointing them at data.
-
-Licensing: the engine is **AGPL-3.0** and this repo is MIT. Running it and pinning it as a
-submodule is fine; copying its source into this tree is not.
-
-## Mechanism
-
-One idea: **a claim is a node, and claims can retire other claims.**
-
-**Ingest.** Documents go in as normal so hybrid retrieval works. Alongside them we send a
-`graph_payload` — an author-supplied graph of claims. Each claim node carries its entity,
-predicate, value, timestamp and source. This is deterministic: we decide the edges, not an
-extractor.
-
-Important correction: `graph_payload` is **replace, not augment**. A source carrying a
-payload gets *no* LLM-extracted facts at all — only ours. It is still chunked and
-embedded, so it stays fully searchable, and skipping the extraction call makes ingestion
-measurably faster. So authored and inferred edges coexist **across** sources, never within
-one. Our design accepts that trade deliberately: claim sources are ours and precise;
-anything we want inferred edges on, we ingest without a payload.
-
-Two consequences to respect:
-
-- **A linked relation is *sourced*, not *supported*.** HydraDB links every supplied
-  relation to its best-matching chunk with no reject floor, so a weak match still links.
-  We therefore carry our own evidence passage on the claim rather than trusting the
-  chunk association for citation.
-- **The payload survives re-ingestion.** Re-ingesting a source without a payload re-applies
-  the stored graph rather than falling back to extraction, so iterating on document text
-  doesn't silently destroy our claims.
-
-**Conflict detection.** Two claims conflict when they share an entity and predicate but
-assert different values. The later claim wins by default; an explicit `supersedes` edge is
-written from new to old, carrying the evidence passage that caused the change. Nothing is
-deleted — the retired claim stays queryable, marked.
-
-Four rules learned from prior art, each of which is a bug if skipped:
-
-1. **Per-predicate cardinality is mandatory.** Some predicates hold one value at a time
-   (`current_datastore`, `owner`), others hold many (`depends_on`, `mentions`). Applying
-   supersession to a many-valued predicate deletes knowledge. Every predicate in our
-   vocabulary declares its cardinality; only single-valued ones can be superseded.
-2. **Order by stated time, never by arrival time.** A document ingested today can assert a
-   fact from 2024. Keying supersession off ingestion order retires the wrong claim — the
-   most common way an implementation is quietly wrong. Each claim carries the time it was
-   *stated*, extracted relative to its source's own timestamp, and conflicts resolve on
-   that axis.
-3. **Two clocks, kept separate.** *Stated time* (when the claim was made in the world) and
-   *ingest time* (when we learned it) are different fields and never collapsed. "Unknown
-   stated time" is representable — defaulting it to ingest time silently asserts the fact
-   became true the moment we read it.
-4. **No derived claims.** We store only claims extracted directly from a source passage,
-   never conclusions inferred from other claims. This sidesteps retraction cascades
-   entirely: retiring a claim can never orphan a conclusion that depended on it, because
-   no such conclusions exist. If we ever add derived claims, they are marked derived,
-   record their inputs, and are treated as an invalidatable cache rather than a belief.
-
-Conflict is also *not* simply the opposite of agreement. Two claims conflict only if they
-concern the same entity, the same predicate, **and the same event** — "ran 5 miles Tuesday"
-and "ran 3 miles Wednesday" contradict nothing. Our v1 rule is deliberately crude and
-explicit rather than an LLM judge deciding freely; that keeps failures legible in a demo.
-
-**Retrieval tuning — per-query alpha (decided 2026-08-16).** HydraDB's `alpha` blends dense
-and sparse retrieval (1.0 pure semantic, 0.0 pure BM25) and defaults to **0.8**, which is
-tuned for prose. Our corpus is full of literal tokens that dense embeddings smear: service
-names, error codes, handles, version strings. So retrieval detects **identifier-shaped
-queries** — digits, underscores, `@`, all-caps tokens, version-like dots, known entity names
-— and drops `alpha` to roughly 0.3–0.5 for those, leaving conceptual questions
-semantic-leaning. About half an hour of work.
-
-Tune it against the gold questions, not by eye. Without labelled judgements, adjusting
-`alpha` measures confirmation bias rather than retrieval quality — and being able to show
-that measurement is itself worth points where rivals show screenshots.
-
-**Retrieval.** A question runs against HydraDB in thinking mode with graph context on. The
-returned chunks locate the relevant region; the claim graph decides which assertions in
-that region are still live. Multi-hop is computed locally: `context.relations()` with the
-source id omitted returns database-wide triplets with cursor pagination, so the graph is
-materialised in memory and walked to any depth.
-
-**Abstention.** If no live claim supports the question, the system refuses and reports the
-neighbourhood it searched. HydraDB always returns ranked chunks — its own agent guide
-notes "a low-relevance result is still a result" — so abstention has to be our decision,
-made against claim coverage rather than chunk scores.
-
-## Answer shape
-
-Every answer has three parts, and any of them may be empty:
-
-- **Holds now** — the live claim, with its source and date.
+- **Holds now** — the live claim, with source and date.
 - **No longer held** — retired claims, when they died, and what retired them.
 - **Unsupported** — the part of the question no claim covers.
 
-## Demo (3 minutes)
+## Data model
 
-1. A lookup that works, with citation.
-2. A question whose answer changed: the version chain renders — old belief, new belief,
-   the message that flipped it, the date.
-3. A question the corpus cannot answer: refusal with the searched neighbourhood, next to
-   a baseline that confidently invents an answer from the same corpus.
+A claim node records:
 
-## Corpus
-
-**Decision (2026-08-16): EnterpriseRAG-Bench** (onyx-dot-app), the ~500K-document
-"Redwood Inference" corpus with 500 gold questions. It is the dataset named in the Track 1
-brief and the one the visible field is scoring against, so our numbers are directly
-comparable — "we got X on the same 500 questions" lands with a judge in a way that a good
-score on a dataset nobody else ran does not.
-
-If it turns out to lack labelled *unanswerable* questions, we borrow that slice from HERB
-for the abstention evaluation and say so plainly rather than quietly mixing corpora.
-
-### Fallback: Salesforce HERB
-
-(huggingface.co/datasets/Salesforce/HERB) — kept as the alternative because it fits the
-build unusually well:
-
-- Real enterprise shapes — Slack messages, meeting transcripts, documents, URLs, pull
-  requests — across ~530 employee profiles and multiple fictional companies.
-- Multi-hop questions with guaranteed ground truth.
-- **Both answerable and unanswerable questions.** The unanswerable set is our abstention
-  demo with a ground-truth label attached, which is far stronger than us asserting a
-  question is unanswerable.
-- Deliberate "realistic noise" baked in.
-
-Licensing: **CC-BY-NC-4.0, research use only, generated with GPT-4o.** That is fine for a
-hackathon submission but must be attributed in the README, and we do not redistribute the
-data in the repo — only loading code.
-
-Not yet verified: whether HERB contains *explicitly contradictory* statements or only
-noise. If it doesn't, we introduce a small number of dated revisions ourselves and label
-them clearly as an authored overlay rather than pretending they came from the corpus.
-
-## Scope discipline
-
-- The corpus is a deliberately chosen subset, not all ~500k documents. The free storage
-  tier will not hold the full set, and the README says so plainly rather than implying
-  full coverage.
-- Ingestion happens first, before application code. Graph construction is a stage that
-  runs *after* content becomes searchable; a late bulk ingest yields a thin graph with no
-  error to explain it.
-- No hard-coding against predicate strings from HydraDB's own extractor — they are
-  LLM-normalised and non-deterministic. Authored predicates are ours and stable; extracted
-  ones are read, never assumed.
-
-## Risks
-
-| Risk | Handling |
+| Field | Meaning |
 |---|---|
-| `graph_payload` does not behave as documented | Hour-one spike; fall back to reading HydraDB's extracted graph and writing supersession as metadata |
-| Graph creation too slow for iteration | Ingest a small corpus first, expand only once the pipeline is proven |
-| Conflict detection produces false contradictions | Require same entity *and* predicate, different value; show confidence and let the demo include a near-miss |
-| Free tier storage limits | Scope the corpus; state the subset explicitly |
+| `entity` | what the claim is about |
+| `predicate` | which property |
+| `value` | the asserted value |
+| `stated_at` | when the claim was made in the world |
+| `ingested_at` | when we learned it |
+| `source` | the document or message it came from |
+| `evidence` | the verbatim passage supporting it |
 
-## Non-goals
+Edges: `asserts` (claim → value), `about` (claim → entity), and `supersedes`
+(claim → retired claim), the last carrying the date and the evidence that caused the change.
 
-Not a chat product. Not a benchmark chase. Not a recruiting tool — HydraDB already ships
-an AI recruiter cookbook, and following the tutorial is the opposite of the point.
+## Conflict rules
+
+Two claims conflict when they share an entity and a predicate, assert different values, and
+refer to the same event. Four rules govern what happens next; each is a silent bug if
+skipped.
+
+1. **Per-predicate cardinality.** Some predicates hold one value at a time (`owner`,
+   `current_datastore`); others hold many (`depends_on`, `mentions`). Only single-valued
+   predicates can be superseded. Applying supersession to a many-valued predicate deletes
+   knowledge without error.
+2. **Order by stated time, not arrival time.** A document ingested today can assert a fact
+   from two years ago. Resolving conflicts by ingestion order retires the wrong claim.
+3. **Two clocks, never collapsed.** Stated time and ingest time are separate fields, and
+   "unknown stated time" is representable. Defaulting one to the other asserts that a fact
+   became true the moment it was read.
+4. **No derived claims.** Only claims extracted directly from a source passage are stored,
+   never conclusions inferred from other claims. Retiring a claim therefore cannot orphan a
+   conclusion that depended on it.
+
+## Abstention
+
+Retrieval always returns its closest chunks whether or not any of them answer the question.
+Abstention is therefore decided against **claim coverage**, not similarity scores: if no live
+claim covers the entity and predicate being asked about, the system declines and reports the
+neighbourhood it searched.
+
+## Built on HydraDB
+
+Two surfaces, each doing a job the other cannot.
+
+- **The managed API** provides hybrid retrieval (dense + BM25) to find the region of the
+  corpus a question is about, and accepts a `graph_payload` so the claim graph is authored
+  deterministically rather than inferred by an extractor.
+- **The open-source engine** (`hydra-db/hydradb`, OpenCypher over Bolt) stores and traverses
+  the claim graph. Supersession chains are walked with real queries.
+
+Retrieval finds where to look. The graph decides what is still true there.
+
+### Notes on the engine's Cypher subset
+
+Recorded here because they shape the implementation. Verified against `cypher-compat.md`
+and confirmed in practice:
+
+- No unbounded variable-length traversal (`*`, `*1..`); depths must be bounded.
+- No `IS NULL`, `IN`, `CONTAINS` or `ENDS WITH` in `WHERE`, and negated pattern predicates
+  (`WHERE NOT (()-[:REL]->(n))`) are unsupported — absence queries move client-side.
+- `RETURN n` for a whole node is unsupported; project properties or aggregate.
+- `MATCH` followed by `CREATE` is unsupported; use a single `MERGE` clause.
+- `MERGE` requires integer ids. Via the JS driver, plain numbers serialize as floats and are
+  rejected — wrap with `neo4j.int()`.
+
+Retrieval tuning: `alpha` blends dense and sparse scoring and defaults to 0.8. An enterprise
+corpus is dense with identifiers (service names, error codes, handles, version strings) that
+embeddings smear, so identifier-shaped queries are detected and run nearer 0.3–0.5.
+
+## Status
+
+In progress for Hack Hydra 2026. Scope, corpus and evaluation are recorded in the README as
+they are settled.
