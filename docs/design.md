@@ -29,9 +29,10 @@ The brief says "build with the HydraDB open-source repo," and the visible Track 
 using it — one competitor pins it as a git submodule and describes its answer path as "a
 bounded OpenCypher traversal, not a vector lookup."
 
-**Decision: build on the OSS engine, keep the managed API for hybrid retrieval.** The graph
-decides what is still true; retrieval finds where to look. That split is also what makes the
-demo legible — a supersession chain walked by a real query beats a chunk list.
+**Decision (2026-08-16): use both surfaces.** The managed API finds *where* in the corpus to
+look; the OSS engine decides *what is still true* there. Each does a job the other cannot,
+and the split is what makes the demo legible — a supersession chain walked by a real query
+beats a chunk list. Cost is a second integration on a four-day clock; accepted.
 
 ### Verified constraints of their Cypher dialect
 
@@ -142,8 +143,19 @@ Every answer has three parts, and any of them may be empty:
 
 ## Corpus
 
-**Salesforce HERB** (huggingface.co/datasets/Salesforce/HERB) is the working choice.
-It fits the build unusually well:
+**Decision (2026-08-16): EnterpriseRAG-Bench** (onyx-dot-app), the ~500K-document
+"Redwood Inference" corpus with 500 gold questions. It is the dataset named in the Track 1
+brief and the one the visible field is scoring against, so our numbers are directly
+comparable — "we got X on the same 500 questions" lands with a judge in a way that a good
+score on a dataset nobody else ran does not.
+
+If it turns out to lack labelled *unanswerable* questions, we borrow that slice from HERB
+for the abstention evaluation and say so plainly rather than quietly mixing corpora.
+
+### Fallback: Salesforce HERB
+
+(huggingface.co/datasets/Salesforce/HERB) — kept as the alternative because it fits the
+build unusually well:
 
 - Real enterprise shapes — Slack messages, meeting transcripts, documents, URLs, pull
   requests — across ~530 employee profiles and multiple fictional companies.
