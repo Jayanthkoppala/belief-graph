@@ -97,6 +97,26 @@ and confirmed in practice:
 - Run the container with `CLOUD_PROVIDER=memory` for development. The documented
   `CLOUD_PROVIDER=local` cannot sustain writes (issue #81).
 
+### Path procedures
+
+The restriction on unbounded variable-length traversal does not mean transitive queries are
+impossible — the engine exposes three native path procedures, which do not appear in the
+published documentation and were read from the engine source:
+
+| Procedure | Origin |
+|---|---|
+| `algo.SPpaths` | single pair; requires `sourceNode` and `targetNode` |
+| `algo.SSpaths` | single source; takes `sourceNode`, rejects `targetNode` |
+| `algo.MSpaths` | multi source; requires a `source` selector set |
+
+They share `relTypes`, `maxLen`, `relDirection` and `pathCount`, and yield `path`,
+`pathWeight` and `pathCost`.
+
+This is how supersession chains are walked: `algo.SSpaths` filtered to `relTypes:
+['SUPERSEDES']` with a bounded `maxLen`, executed server-side rather than by pulling the
+graph into the client. `pathWeight` and `pathCost` also allow chains to be ranked rather
+than merely enumerated.
+
 Retrieval tuning: `alpha` blends dense and sparse scoring and defaults to 0.8. An enterprise
 corpus is dense with identifiers (service names, error codes, handles, version strings) that
 embeddings smear, so identifier-shaped queries are detected and run nearer 0.3–0.5.
