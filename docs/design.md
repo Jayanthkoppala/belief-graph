@@ -84,6 +84,18 @@ and confirmed in practice:
 - `MATCH` followed by `CREATE` is unsupported; use a single `MERGE` clause.
 - `MERGE` requires integer ids. Via the JS driver, plain numbers serialize as floats and are
   rejected — wrap with `neo4j.int()`.
+- **A multi-hop `MATCH` with an anonymous interior node is lowered into unjoined segments**,
+  so the path becomes a cross product (engine issue #95, high severity). Name every interior
+  node in a traversal, and do not run `SET`/`DELETE` against such a pattern — the mutation
+  can reach vertices the path never visited.
+- Path procedures differ in how they take an origin: `SSpaths` wants an integer source,
+  `MSpaths` requires the set form. `sourceValues` entries match as **strings**, so a string
+  compared against an integer property parses cleanly and silently selects nothing.
+- `SSpaths` without an explicit `pathCount` returns only the single shortest path, so a
+  neighbour count silently reads as 1. `RETURN count(path)` is rejected.
+- `UNWIND` batches cap at 1024 rows.
+- Run the container with `CLOUD_PROVIDER=memory` for development. The documented
+  `CLOUD_PROVIDER=local` cannot sustain writes (issue #81).
 
 Retrieval tuning: `alpha` blends dense and sparse scoring and defaults to 0.8. An enterprise
 corpus is dense with identifiers (service names, error codes, handles, version strings) that
