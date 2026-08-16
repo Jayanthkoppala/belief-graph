@@ -206,27 +206,6 @@ them clearly as an authored overlay rather than pretending they came from the co
 | Conflict detection produces false contradictions | Require same entity *and* predicate, different value; show confidence and let the demo include a near-miss |
 | Free tier storage limits | Scope the corpus; state the subset explicitly |
 
-## The field (as of 2026-08-16)
-
-Roughly 19 public repos exist for this hackathon. At least four Track 1 entries are building
-the same primitives we are — claims as nodes, `SUPERSEDES` edges, explicit abstention:
-
-| Repo | Project | Signal |
-|---|---|---|
-| `dukemawex/atlas-hydra` | Atlas | Person/Project/Claim/Decision nodes, `SUPPORTS`/`CONTRADICTS`/`SUPERSEDES`, explicit `NOT_FOUND`. FastAPI UI, demo video shot, OSS engine as submodule. 11 commits. |
-| `Shrujal00/glasshouse-hydradb` | Glasshouse | "Disagreements are kept, not hidden"; "knowing when to shut up". Uses both the managed API and the OSS engine. Best-presented. 23 commits. |
-| `PrathamS1/hydra-brain` | Company Brain | 7-stage pipeline; conflict layer with trust/recency; entity resolution via `algo.MSpaths`; scored on EnterpriseRAG-Bench's 500 gold questions. 2 commits. |
-| `gowthamchoudhary/Cortex-hq` | Cortex | "enterprise knowledge graph & temporal ontology layer". 37 commits, 16MB. |
-
-**So the idea is table stakes; execution and correctness are the whole game.** The defensible
-ground is the set of things most implementations of this get wrong — ordering by arrival time
-instead of stated time, no per-predicate cardinality, one clock instead of two — plus evidence
-that our abstention is a coverage test rather than a prompt. Being demonstrably correct where
-others are plausibly wrong is a better three-minute video than another conflict demo.
-
-Note the corpus the field is using is **EnterpriseRAG-Bench** (onyx-dot-app, ~500K docs,
-500 gold questions), not HERB. Comparable numbers may matter more than a nicer dataset.
-
 ## Non-goals
 
 Not a chat product. Not a benchmark chase. Not a recruiting tool — HydraDB already ships

@@ -337,16 +337,3 @@ Around fourteen community hackathon demos exist, 1–3 minutes each; the Atlas o
 the Track 1 entry to watch.
 
 ---
-
-## 10. The competing field (2026-08-16)
-
-| Repo | Project | Approach |
-|---|---|---|
-| `dukemawex/atlas-hydra` | Atlas | Person/Project/Claim/Decision nodes; `SUPPORTS`/`CONTRADICTS`/`SUPERSEDES`; explicit `NOT_FOUND`. FastAPI UI, demo video shot, OSS engine as submodule. |
-| `Shrujal00/glasshouse-hydradb` | Glasshouse | Identity resolution, contradiction arbitration, abstention. Uses both surfaces. Apache-2.0. |
-| `PrathamS1/hydra-brain` | Company Brain | 7-stage pipeline; conflict layer with trust/recency; entity resolution via `algo.MSpaths`; EnterpriseRAG-Bench eval harness; Streamlit UI. |
-| `gowthamchoudhary/Cortex-hq` | Cortex | Enterprise knowledge graph and temporal ontology layer. |
-| `kgarg2468/hydradb-oss-hack` | Hindsight | Track 2A. Bitemporal time-travel, reportedly patched the engine itself. |
-
-The primitives are table stakes. What remains defensible is correctness: stated-time ordering,
-per-predicate cardinality, two clocks, and abstention as a coverage test rather than a prompt.
