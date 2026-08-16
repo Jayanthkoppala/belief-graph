@@ -114,6 +114,18 @@ concern the same entity, the same predicate, **and the same event** — "ran 5 m
 and "ran 3 miles Wednesday" contradict nothing. Our v1 rule is deliberately crude and
 explicit rather than an LLM judge deciding freely; that keeps failures legible in a demo.
 
+**Retrieval tuning — per-query alpha (decided 2026-08-16).** HydraDB's `alpha` blends dense
+and sparse retrieval (1.0 pure semantic, 0.0 pure BM25) and defaults to **0.8**, which is
+tuned for prose. Our corpus is full of literal tokens that dense embeddings smear: service
+names, error codes, handles, version strings. So retrieval detects **identifier-shaped
+queries** — digits, underscores, `@`, all-caps tokens, version-like dots, known entity names
+— and drops `alpha` to roughly 0.3–0.5 for those, leaving conceptual questions
+semantic-leaning. About half an hour of work.
+
+Tune it against the gold questions, not by eye. Without labelled judgements, adjusting
+`alpha` measures confirmation bias rather than retrieval quality — and being able to show
+that measurement is itself worth points where rivals show screenshots.
+
 **Retrieval.** A question runs against HydraDB in thinking mode with graph context on. The
 returned chunks locate the relevant region; the claim graph decides which assertions in
 that region are still live. Multi-hop is computed locally: `context.relations()` with the
