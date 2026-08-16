@@ -252,7 +252,93 @@ suffixed `_abs`.
 
 ---
 
-## 9. The competing field (2026-08-16)
+## 9. Video index
+
+Every video referenced anywhere in these docs, in one place. All URLs and durations were
+confirmed against YouTube's own metadata. No timestamps: chapter extraction is blocked, so
+where a topic needed a reference I picked talks that are wholly about it.
+
+### Crash-course references (one per concept)
+
+| Concept | Video | Length |
+|---|---|---|
+| Embeddings, and why similar ≠ relevant | [Navigating Neural Search: Avoiding Common Pitfalls](https://www.youtube.com/watch?v=PrBtxqARY9U) · Jo Kristian Bergum | 41:48 |
+| Dense vs sparse, hybrid blending | [Learning to hybrid search](https://www.youtube.com/watch?v=TBbw2dob-As) · Roman Grebennikov | 46:17 |
+| Rank fusion specifically | [Reciprocal Rank Fusion](https://www.youtube.com/watch?v=px4YBYrz0NU) · Philipp Krenn | 38:49 |
+| Chunking | no standalone talk worth recommending; closest framing is the Kiela talk below | — |
+| The RAG loop | [RAG Agents in Prod: 10 Lessons](https://www.youtube.com/watch?v=kPL-6-9MVyA) · Douwe Kiela | 16:56 |
+| Reranking, and why it exists | [Omar Khattab on Late Interaction](https://www.youtube.com/watch?v=Z2TmdcylyEc) | 32:13 |
+| Similar vs relevant vs true | [Stop Using RAG as Memory](https://www.youtube.com/watch?v=T5IMo5ntyhA) · Daniel Chalef | 7:01 |
+
+### The 41-minute path
+
+1. [Stop Using RAG as Memory](https://www.youtube.com/watch?v=T5IMo5ntyhA) · 7:01
+2. [Temporal RAG: Graphiti, Neo4j and LangGraph](https://www.youtube.com/watch?v=nIM_NimxxRc) · 10:25
+3. [Citation Needed: Provenance for LLM-Built Knowledge Graphs](https://www.youtube.com/watch?v=H7puB0RwJMM) · 20:54
+4. [Atlas: HydraDB-Powered Enterprise Context and Ontology](https://www.youtube.com/watch?v=twhWXaFNGKk) · 2:25 — a rival's Track 1 demo
+
+### The three-hour run
+
+Adds, in order: [What is a Knowledge Graph?](https://www.youtube.com/watch?v=y7sXDpffzQQ) (IBM, 5:36) ·
+[Slowly Changing Dimensions Explained](https://www.youtube.com/watch?v=sZFCYpojP4I) (10:06) ·
+[GraphRAG: The Marriage of Knowledge Graphs and RAG](https://www.youtube.com/watch?v=knDDGYHnnSI) (Emil Eifrem, 19:14) ·
+[Zep: A Temporal KG Architecture for Agent Memory](https://www.youtube.com/watch?v=NBZGieN8S6E) (41:39) ·
+[The Value of Values](https://www.youtube.com/watch?v=-6BsiVyC1kM) (Rich Hickey, 31:43) ·
+[Entity Resolution at Scale](https://www.youtube.com/watch?v=Vyco67swTSk) (Huon Wilson, 23:10).
+Optional follow-on: [Build an AI Knowledge Graph with Graphiti + Neo4j](https://www.youtube.com/watch?v=H2Cb5wbcRzo) (24:04), which leaves you with running code.
+
+### Knowledge graphs
+
+- [Graph Databases: When to Use Them (And When to Run Away)](https://www.youtube.com/watch?v=7kXY-2fYdHI) · Hamel Husain · 33:57
+- [Knowledge Graph or Vector Database… Which is Better?](https://www.youtube.com/watch?v=6vG_amAshTk) · Adam Lucek · 41:07
+- [Extracting Knowledge Graphs From Text With GPT-4o](https://www.youtube.com/watch?v=O-T_6KOXML4) · Thu Vu · 23:40 — the step our pipeline lives or dies on
+- [Property Graph vs Triple Store](https://www.youtube.com/watch?v=PEyW-MfxaEA) · 15:17 — matters when deciding where a date hangs on an edge
+
+### GraphRAG, and its critics
+
+- [GraphRAG methods for optimized context windows](https://www.youtube.com/watch?v=c5qJHr3DnT4) · Jonathan Larson, Microsoft · 15:08
+- [I Was Wrong About GraphRAG: What Won in 2026](https://www.youtube.com/watch?v=rEITYxTJggU) · 10:47 — the critique to watch
+- [Dispelling GraphRAG hype](https://www.youtube.com/watch?v=BEXEw6T4234) · 9:07 — the cost argument
+
+### Agent memory
+
+- [Mem0: Scalable Long-Term Memory](https://www.youtube.com/watch?v=EE4pvOEAjXc) · 13:31 — the counter-design: mutates in place where Zep retires
+- [Architecting Agent Memory](https://www.youtube.com/watch?v=W2HVdB4Jbjs) · Richmond Alake, MongoDB · 17:36
+- [Approaches for Managing Agent Memory](https://www.youtube.com/watch?v=3aS1A-0775s) · LangChain · 11:34 — inline vs background writes
+
+### Time and immutability
+
+- [The Incredible Power of XTDB and Bitemporal Data](https://www.youtube.com/watch?v=Mr4NQyK5PW4) · 3:00
+- [Bitemporal Databases: What They Are and Why They Matter](https://www.youtube.com/watch?v=3sRKQg9-In8) · James Henderson · 56:43 — clearest valid-vs-transaction-time treatment
+- [A Decade of DDD, CQRS, Event Sourcing](https://www.youtube.com/watch?v=LDW0QWie21s) · Greg Young · 48:03
+- [Event Sourcing: The Bad Parts](https://www.youtube.com/watch?v=K4bj31fJGFk) · Greg Young · ~42 min — watch before committing to append-only
+- [Deconstructing the Database](https://www.youtube.com/watch?v=Cym4TZwTCNU) · Rich Hickey · 1:06:23
+- [Turning the database inside out](https://www.youtube.com/watch?v=fU9hR3kiOK0) · Martin Kleppmann · 47:42
+
+### Entity resolution
+
+- [Entity Resolution and Deduplication with Neo4j and GenAI](https://www.youtube.com/watch?v=GMTY78xqGXQ) · 50:00 — extraction producing duplicate nodes for one entity, exactly our failure mode
+- [Rapid deduplication with Splink](https://www.youtube.com/watch?v=eQtFkI8f02U) · Robin Linacre · 27:24 — blocking rules, Fellegi-Sunter, training without labels
+
+### Hallucination and refusal
+
+- [Why Language Models Hallucinate](https://www.youtube.com/watch?v=0dRouBLcvMs) · Adam Kalai · 1:09:32 — hallucination as a scoring artifact; benchmarks reward guessing and punish "I don't know"
+- [RAG Evaluation Is Broken](https://www.youtube.com/watch?v=Ywl4LsvHKzU) · 10:58 — measure groundedness separately from answer quality
+
+### HydraDB itself
+
+No official channel and no product demo exists. The founder interviews are the substance:
+
+- [Why does AI Need Better Context](https://www.youtube.com/watch?v=J3bPJ9n77zo) · Nishkarsh Srivastava · 21:10 · published Aug 14, 2026
+- [He Raised $6.5M With Three Words](https://www.youtube.com/watch?v=FEc9GBqHWHw) · Composio · 40:19 — densest on the ontology-vs-flat-vectors thesis
+- [Meet My CEO & His Vision](https://www.youtube.com/watch?v=WDPjdIDe4Iw) · 20:16
+
+Around fourteen community hackathon demos exist, 1–3 minutes each; the Atlas one above is
+the Track 1 entry to watch.
+
+---
+
+## 10. The competing field (2026-08-16)
 
 | Repo | Project | Approach |
 |---|---|---|
